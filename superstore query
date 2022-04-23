@@ -1,0 +1,440 @@
+CREATE TABLE Superstore_test0002 (
+Row_ID bigserial primary key,
+Order_ID varchar(45),
+Order_date Date,
+Ship_date Date,
+Ship_mode Date,
+Customer_ID varchar(45),
+Customer_name varchar(60),
+Segment text,
+Country text,
+City text,
+State_name text,
+Postal_code text,
+Region varchar(70),
+Category varchar(50),
+Sub_category varchar(50),
+Product_name varchar(50),
+Sales real,
+Quantity smallint,
+Discount real);
+
+
+-------TO CHANGE THE NUMBER OF CHARACTERS IN THE product_name COLUMN-----------
+ALTER  TABLE superstore_test0002
+ALTER COLUMN product_name
+TYPE character  
+varying(200);
+
+SELECT *
+FROM superstore_test0002  
+	
+------------------------GETTING HIGHEST SALES AFTER DISCOUNT FOR THE DISTINCT YEAR----------------------------------------------
+  SELECT 
+    TO_CHAR(DATE(order_date),'DAY') AS DAY,
+	TO_CHAR(DATE(order_date),'MONTH') AS MONTH,
+	DATE_PART('Year',order_date) AS YEAR ,
+	CAST(sum(sales * (1- discount))AS INT) AS total_daily_sales_after_discount
+From superstore_test0002
+GROUP BY  1,2,3
+ORDER BY  4 DESC	
+----------MONTHLY SALES AVERAGES-------------------------------------------------
+SELECT 
+    TO_CHAR(DATE(order_date),'MONTH') AS MONTH_DATE,DATE_PART('Year',order_date) AS YEAR_DATE,
+	AVG(sales) AS Average_monthly_sales
+From superstore_test0002
+WHERE DATE_PART('Year',order_date) =2017
+GROUP BY  1,2
+ORDER BY  3 DESC
+ 
+ ---------DAILY SALES AVERAGES-----------------------------------------------------------------------
+ SELECT 
+    TO_CHAR(DATE(order_date),'DAY') AS DAY,
+	TO_CHAR(DATE(order_date),'MONTH') AS MONTH,
+	DATE_PART('Year',order_date) AS YEAR ,
+	CAST(AVG(sales)AS INT)Sale_AVG
+From superstore_test0002
+WHERE DATE_PART('Year',order_date)   = 2017 AND DATE_PART('Month',order_date) =3 
+GROUP BY  1,2,3
+ORDER BY  4 DESC
+ 
+ -----TO GET THE DAILY SALES IN THE MONTH OF MARCH FOR THE YEAR 2017------
+ SELECT 
+    TO_CHAR(DATE(order_date),'DAY') AS DAY,
+	DATE_PART('Month',order_date) AS MONTH,
+	DATE_PART('Year',order_date) AS YEAR ,
+	CAST(AVG(sales)AS INT)Sale_AVG
+From superstore_test0002
+WHERE DATE_PART('Year',order_date)   = 2017 AND DATE_PART('Month',order_date) =3 
+GROUP BY  1,2,3
+ORDER BY  4 DESC
+ 
+ 
+ 
+----------ANALYZING SALES AFTER  DISCOUNT THE PREVIOUS AND CURRENT DAY- FOR YEAR 2017 AND MONTH MARCH---------------------------------
+
+WITH CTE AS 
+
+(SELECT 
+     DATE_PART('Year',order_date) AS YEAR_DATE,
+     TO_CHAR(DATE(order_date),'DAY') AS DAY_DATE,
+	 DATE_PART('Month',order_date) AS MONTH_DATE,
+	 SUM(sales *(1-discount)) as total_sales_disounted
+	 From superstore_test0002
+	 GROUP BY 1,2,3
+	 ORDER BY 4 DESC
+ )
+SELECT YEAR_DATE,DAY_DATE,MONTH_DATE, total_sales_disounted,
+LAG(total_sales_disounted) OVER(
+) AS previous_daily_sale
+FROM CTE
+WHERE YEAR_DATE  = 2017 AND MONTH_DATE =3
+ -----------------------------------ANALYZING SALES AFTER  DISCOUNT THE PREVIOUS AND CURRENT YEAR---
+ WITH  CTE AS (
+	   SELECT 
+       DATE_PART('Year',order_date) AS  YEAR,
+	   sum(sales * (1- discount)) AS totaL_sales_after_discount
+From superstore_test0002
+GROUP BY  1
+ORDER BY  2 DESC
+)
+SELECT 
+      YEAR,
+	  total_sales_after_discount,
+     LAG (total_sales_after_discount) OVER (
+	) previous_year_sales
+FROM
+	CTE;
+	
+------------- --------ANALYZING PREVIOUS AVERAGE SALES FOR THE YEAR ------------------
+	
+  WITH  CTE AS (
+	   SELECT 
+	   DATE_PART('Year',order_date) AS YEAR_DATE,
+	   AVG(sales) AS Average_sales
+From superstore_test0002
+GROUP BY  1
+ORDER BY  1 
+)
+SELECT 
+      YEAR_DATE,
+	  Average_sales,
+     LAG (Average_sales) OVER (
+	) avg_previous_month_sales
+FROM
+	CTE
+ 
+
+
+-----------GETTING THE NEXT YEAR TOTAL SALES NOT DISCOUNTED USING LEAD FUNCTION---------------- 
+
+
+	 WITH  CTE AS (
+	   SELECT 
+       DATE_PART('YEAR',order_date ) AS YEAR_DATE,
+	   SUM(sales) AS Total_sales
+From superstore_test0002
+GROUP BY 1
+ORDER BY 1
+)
+SELECT 
+     YEAR_DATE, 
+	 Total_sales,
+     LEAD(Total_sales,1) OVER (
+	  ) AS 
+next_year_sales
+FROM
+	CTE;      
+ ---------------------------------------------------
+ SELECT
+   DATE_PART('year',order_date ) as YEAR,
+	AVG(sales) AS Average_monthly_sales
+From superstore_test0002
+GROUP BY  1
+ORDER BY  2
+      
+----------COMPARING THE NEXT YEAR  AVERAGE SALES OF THE YEARS USING CTE AND LEAD FUNCTION--------------------------------------------------------	  
+WITH  CTE AS (
+	   SELECT 
+       DATE_PART('year',order_date ) as YEAR_DATE,
+	  AVG(sales) AS AVG_sales
+From superstore_test0002
+GROUP BY  1
+ORDER BY  1 
+)
+SELECT 
+      YEAR_DATE,
+	  AVG_sales,
+     LEAD (AVG_sales) OVER (
+	) next_year_Avg_sales
+FROM
+	CTE;
+--------------------THE TOP TEN CUSTOMERS RANKED BY SALES-----------------------------------------------------------------------------
+SELECT 
+    customer_name,
+	sales,
+	RANK () OVER(
+	        ORDER BY sales DESC) SALES_RANK
+FROM superstore_test0002 LIMIT 100
+--------------------DENSE RANK-----------------------
+SELECT 
+    customer_name,
+	sales,
+	  DENSE_RANK () OVER(
+	        ORDER BY sales DESC) SALES_RANK
+FROM superstore_test0002 LIMIT 100
+-------------SHOWING  THE TOP CUSTOMERS BY SALES RANK  USING ROW NUMBER TO RANK DOUBLE SALES RECORD------------------------------------
+SELECT 
+    customer_name,
+	sales,
+	  ROW_NUMBER () OVER(
+	        ORDER BY sales DESC) SALES_RANK
+FROM superstore_test0002 LIMIT 100
+---------- GETTING THE TOP 100 -USING ROW NUMBER BY CATEGORY BY SALES---------------
+SELECT 
+    category,
+	sales,
+	  ROW_NUMBER () OVER(
+	        ORDER BY sales DESC) SALES_RANK
+FROM superstore_test0002 LIMIT 100
+--------GETTING THE TOP 100------USING RANK TO GET THE SALES RANK BY CATEGORY BY SALES------------------------------
+SELECT 
+    category,
+	sales,
+	  RANK() OVER(
+	        ORDER BY sales DESC) SALES_RANK
+FROM superstore_test0002 LIMIT 100
+--------------USING DENSE RANK TO GET THE NEXT RANK FOR SALES RANK HAVING THE SAME RANK-----------
+SELECT 
+     category, DATE_PART('Year',order_date),
+	sales,
+	  DENSE_RANK() OVER(
+	        ORDER BY sales DESC) SALES_RANK
+FROM superstore_test0002 LIMIT 100
+---GETTING THE HIGHEST SALES FOR EACH CUSTOMER EVEN WHEN THE CUSTOMER HAS DOUBLE SALES RECORD--USING PARTITION-------
+
+ SELECT *  FROM (SELECT  customer_name,sales,
+ ROW_NUMBER () OVER(PARTITION BY customer_name ORDER BY sales DESC)AS SALES_RANK       
+ FROM superstore_test0002) a  WHERE SALES_RANK =1 ORDER BY SALES DESC
+------------------HOW TO CREATE A VIEW----------------------------
+----I WANT A VIEW OF THE TOP 100 SALES BY CUSTOMERS---------------------------
+
+CREATE VIEW top_sales
+AS
+SELECT a.customer_name,a.sales  FROM (SELECT  customer_name,sales,
+ ROW_NUMBER () OVER(PARTITION BY customer_name ORDER BY sales DESC)AS SALES_RANK       
+ FROM superstore_test0002) a  WHERE SALES_RANK =1 ORDER BY SALES DESC
+
+-----------USING CTE TO CREATE A TEMP TABLE IN THE CONTEXT OF THE QUERY------
+-----to get the customers that has sales over 5000------------------
+
+WITH 
+ SALES_TEMP
+AS
+  (SELECT a.customer_name,a.sales  FROM (SELECT  customer_name,sales,
+ ROW_NUMBER () OVER(PARTITION BY customer_name ORDER BY sales DESC)AS SALES_RANK       
+ FROM superstore_test0002) a  WHERE SALES_RANK =1 ORDER BY SALES DESC)
+SELECT customer_name,sales FROM SALES_TEMP WHERE sales>5000
+
+
+----------------TO KNOW HOW MANY DISTINCT SUBCATEGORY-----------------
+SELECT count(DISTINCT sub_category)
+FROM superstore_test0002
+-------TO KNOW HOW MANY DISTINCT SEGMENT-------------------------
+SELECT count(DISTINCT segment)
+FROM superstore_test0002
+
+
+-------------------------------------------- TO GET THE TOP 5 HIGHEST SALES------
+
+SELECT sub_category,SUM(sales) AS TOTAL_SALES
+FROM superstore_test0002
+GROUP BY 1
+ORDER BY 1 DESC
+LIMIT 5
+
+----------to get the top  rank by sales on the subcategory--------*--------------
+SELECT *, ROW_NUMBER () OVER(ORDER BY TOTAL_SALES DESC)  AS SALES_RANK 
+FROM 
+(
+ SELECT sub_category,SUM(sales) AS TOTAL_SALES
+ FROM superstore_test0002 
+ GROUP BY 1	) a
+	
+--------RENAMING THE CLOUMN NAME-------------------------	
+ALTER  TABLE superstore_test0002
+RENAME subcategory_id TO sub_category
+-------REMOVING DUPLICATES FROM THE CUSTOMER NAME-----------------------
+SELECT DISTINCT customer_name,quantity, region
+FROM superstore_test0002 
+ORDER BY 2 DESC
+
+----------GETTING THE TOTAL ORDERS AND TOTAL QUANTITY
+SELECT COUNT(*) AS total_orders,SUM(quantity) AS total_quantity
+FROM superstore_test0002 
+---------TO GET THE AVERAGE ORDERS VALUE -------------
+SELECT order_date, region,
+COUNT(*) AS total_orders,SUM(quantity) AS total_quantity,
+SUM(sales) -SUM(discount) AS net_sales,
+SUM(discount) AS total_discount,
+CAST(SUM(sales)/COUNT(*) AS INT) AS Avg_order_value
+FROM superstore_test0002
+GROUP BY 1,2
+
+SELECT DISTINCT customer_id, order_date, region,
+COUNT(*) AS total_orders,SUM(quantity) AS total_quantity,
+SUM(sales) -SUM(discount) AS net_sales,
+SUM(discount) AS total_discount,
+SUM(sales)/COUNT(*)AS Avg_order_value
+FROM superstore_test0002
+GROUP BY 1,2,3
+-----THE CATEGORY WITH THE HIGHEST SALES-------------------------------------------------------
+SELECT DISTINCT( category),sum(sales) -sum(discount) as net_sales
+FROM superstore_test0002
+GROUP BY 1
+ORDER BY 2
+
+SELECT *
+FROM superstore_test0002 
+SELECT category,MAX(sales) AS Maximum_Sales
+FROM superstore_test0002
+GROUP BY 1
+ORDER BY 2 DESC
+
+SELECT  customer_name,category,sales,
+MAX(sales)  OVER(PARTITION BY category)AS Maximum_Sales
+FROM superstore_test0002 
+
+------THE TOP 3 REGIONS WITH REGARDS TO SALES----------------------------------
+
+SELECT region,sum(sales) -sum (discount) AS Net_sales
+FROM superstore_test0002
+GROUP BY 1
+ORDER BY 2 DESC
+--------THE BOTTOM THREE REGIONS WITH REGARDS TO SALES
+SELECT region,sum(sales) -sum (discount) AS Net_sales
+FROM superstore_test0002
+GROUP BY 1
+ORDER BY 2 
+
+-------THE TOTAL SALES OF APPLIANCES IN--------------------------
+SELECT  sub_category,sum(sales) 
+FROM superstore_test0002
+WHERE sub_category = 'Appliances'
+GROUP  BY 1
+
+-----THE TOP 5 CUSTOMERS BY NAME ,THEIR REGION AND CATEGORY OF PRODUCT PURCHASED--------
+SELECT DISTINCT (customer_name),category, region,sum(sales) -sum (discount) AS Net_sales
+FROM superstore_test0002
+GROUP BY 1,2,3
+ORDER BY 4 DESC
+LIMIT 5
+-----THE BOTTOM  5 CUSTOMERS BY NAME ,THEIR REGION AND CATEGORY OF PRODUCT PURCHASED--------
+SELECT DISTINCT (customer_name),category, region,sum(sales) -sum (discount) AS Net_sales
+FROM superstore_test0002
+GROUP BY 1,2,3
+ORDER BY 4
+LIMIT 5
+-----TO FIND OUT THE TOTAL SALES AND DISCOUNT FOR THE MONTHS IN YEAR 2015
+SELECT DATE_PART('Year',order_date) AS Year_Date,
+				 DATE_PART('Month',order_date) AS Month_Date, 
+				 SUM(sales) AS Total_Sales, 
+				 SUM(quantity)AS Total_quantity,
+				 SUM(discount) AS Total_Discount
+FROM superstore_test0002
+WHERE DATE_PART('Year',order_date)='2015'
+GROUP BY 1,2
+ORDER BY 5 DESC
+
+SELECT customer_name, 
+				 SUM(sales) AS Total_Sales, 
+				 AVG(discount) AS Avg_Discount
+FROM superstore_test0002     
+WHERE DATE_PART('Year',order_date)='2015'
+GROUP BY 1
+ORDER BY 2 DESC
+
+
+-----GETTING THE DELIVERY DAYS FOR QUANTITY ORDERED-------------------
+
+SELECT DISTINCT  order_id,order_date, ship_mode,
+               ship_date,ship_date - order_date AS date_diff, 
+              ship_date - order_date +1 AS days_of_Delivery,
+		      SUM(quantity) AS Total_Quantity
+FROM superstore_test0002		 
+GROUP BY 1,2,3,4,5,6
+ORDER BY 6  DESC
+-----WHICH CONSUMER CUSTOMER HAD THE HIGHEST SALES-----------------------
+SELECT  DISTINCT customer_name,  segment,SUM(sales) AS Total_Sales
+FROM superstore_test0002
+WHERE segment ='Consumer'
+GROUP BY 1,2
+ORDER BY 3 DESC
+LIMIT 1
+
+
+-----THE TOP CUSTOMERS BY  TOTAL QUANTITY BY VARIOUS YEARS------
+SELECT DISTINCT customer_name,quantity,DATE_PART('Year',order_date) AS YEAR
+FROM superstore_test0002
+ORDER BY 2 DESC
+LIMIT 10
+---------TO GET THE DISTINCT YEAR --------
+SELECT DISTINCT  DATE_PART('Year',order_date) AS YEAR
+FROM superstore_test0002
+
+--------The marketing team wants to know the customers 
+----------------with order quantity lower than 5 units in 2017
+----------in order to offer them promotional discounts to encourage more purchases.--------
+SELECT  DISTINCT customer_name,segment, quantity,region
+FROM superstore_test0002
+WHERE quantity <5 AND DATE_PART('Year',order_date)=2017
+ORDER BY 3 DESC
+
+
+---WHICH HOME OFFICE CUSTOMER HAD THE MOST ORDERS
+SELECT  DISTINCT customer_name,  segment,COUNT(order_id) AS Total_Orders
+FROM superstore_test0002
+WHERE segment ='Home Office'
+GROUP BY 1,2
+ORDER BY 3 DESC
+LIMIT 1
+GROUP BY 1,2
+
+
+----WHICH REGION HAD THE MOST ORDERS
+SELECT region,COUNT(order_id) AS Count_Orders
+FROM superstore_test0002
+GROUP BY 1
+ORDER BY 2 DESC
+
+
+------WE WANT THE AVERAGE NUMBER OF ORDERS PER CUSTOMER PER  STATE---------------
+WITH CTE_Orders AS(
+                  SELECT DISTINCT customer_name,state_name,COUNT(*) AS count_of_orders
+                  FROM superstore_test0002
+                  GROUP BY 1,2)
+SELECT state_name,ROUND(AVG(count_of_orders),2) AS rounded_avg
+FROM CTE_Orders
+GROUP BY 1
+ORDER BY 2 DESC
+
+---HOW DO WE GET THE CATEGORY SOLD BY WHICH quantity
+SELECT category,SUM(quantity) AS Total_quantity
+FROM superstore_test0002
+GROUP BY 1
+ORDER BY 2 DESC
+
+--------THETOP 5 BEST SELLING PRODUCT-------
+SELECT product_name, SUM(quantity) AS Total_quantity
+FROM superstore_test0002
+GROUP BY 1
+ORDER BY 2 DESC
+LIMIT 5
+------
+SELECT product_name, SUM(sales) AS Total_sales
+FROM superstore_test0002
+GROUP BY 1
+ORDER BY 2 DESC
+LIMIT 5
+-------    
+
